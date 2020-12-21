@@ -3,12 +3,15 @@
 
 #include <fstream>
 #include <iostream>
+#include <unordered_set>
 #include <vector>
 
 #define SZ(x) (sizeof(x))
+#define ll long long
 #define INT_SIZE SZ(int)
+#define LL_SIZE SZ(ll)
 
-int **read_bin_file(const char *in_path) {
+ll get_vertex_set_size(const char *in_path) {
   using namespace std;
   // Init ifstream
   ifstream in;
@@ -18,28 +21,77 @@ int **read_bin_file(const char *in_path) {
     return 0;
   }
 
-  // Read header size
-  int header_size;
-  in.read(reinterpret_cast<char *>(&header_size), INT_SIZE);
-  cout << "header_size: " << header_size << endl;
-
-  int neighbor_size, neighbor;
-  for (int cusor = INT_SIZE; cusor < header_size && !in.eof();
-       cusor += INT_SIZE) {
-    // Read header
-    in.read(reinterpret_cast<char *>(&neighbor_size), INT_SIZE);
-    cout << cusor << " " << neighbor_size << endl;
-
-    // in.seekg(header_size + cusor, ios::beg);
-    // for (int j = 0; j < neighbor_size; j++) {
-    //   in.read(reinterpret_cast<char *>(&neighbor), INT_SIZE);
-    //   cout << i << " : " << neighbor << endl;
-    // }
+  // Vertex set
+  unordered_set<int> vertexs;
+  int u, v;
+  while (!in.eof() && in >> u >> v) {
+    vertexs.insert(u);
   }
+  return vertexs.size();
+}
+
+std::vector<std::vector<int>> read_bin_file(const char *in_path) {
+  using namespace std;
+  // Init ifstream
+  ifstream in;
+  in.open(in_path, ios::binary);
+  if (in.fail()) {
+    cout << "Error: failed to open input file." << endl;
+    return vector<vector<int>>();
+  }
+
+  // Read header size
+  ll header_size;
+  in.read(reinterpret_cast<char *>(&header_size), LL_SIZE);
+
+  int header_array_size = (header_size - LL_SIZE) / INT_SIZE;
+  int *headers = new int[header_array_size];
+  in.seekg(LL_SIZE, ios::beg);
+  for (int i = 0; i < header_array_size; i++) {
+    in.read(reinterpret_cast<char *>(&headers[i]), INT_SIZE);
+  }
+
+  int neighbor_size;
+  vector<vector<int>> adj(header_array_size);
+  for (int i = 0; i < header_array_size; i++) {
+    in.seekg(headers[i], ios::beg);
+    in.read(reinterpret_cast<char *>(&neighbor_size), INT_SIZE);
+    int *neighborhood = new int[neighbor_size];
+    in.read(reinterpret_cast<char *>(neighborhood), INT_SIZE * neighbor_size);
+    adj[i].assign(neighborhood, neighborhood + neighbor_size);
+  }
+  return adj;
+}
+
+int write_vector(std::ofstream &out, ll &header_pos, ll &body_pos,
+                 std::vector<int> &data) {
+  using namespace std;
+
+  // Write neighborhood start pos
+  out.seekp(header_pos, ios::beg);
+  out.write(reinterpret_cast<const char *>(&body_pos), INT_SIZE);
+
+  // Write neighborhood size
+  int data_size = data.size();
+  out.seekp(body_pos, ios::beg);
+  out.write(reinterpret_cast<const char *>(&data_size), INT_SIZE);
+
+  // Write neighborhood ids
+  out.write(reinterpret_cast<const char *>(&data[0]), INT_SIZE * data_size);
+
+  // Move to next body pos
+  body_pos += INT_SIZE + data_size * INT_SIZE;
+
+  // Move to next header pos
+  header_pos += INT_SIZE;
 }
 
 int write_bin_file(const char *in_path, const char *out_path) {
   using namespace std;
+
+  // Vertex size
+  ll vertex_size = get_vertex_set_size(in_path);
+
   // Init ifstream
   ifstream in;
   in.open(in_path);
@@ -55,12 +107,15 @@ int write_bin_file(const char *in_path, const char *out_path) {
     return 0;
   }
 
-  // Read graph
-  int vertex_size = 0;
-  int header_size = 0;
-  int neighborhood_size;
-  int cusor = 0;
+  ll header_pos = LL_SIZE;
+  ll body_start_pos = LL_SIZE + vertex_size * INT_SIZE;
+  ll body_pos = body_start_pos;
 
+  // Write body start pos
+  out.seekp(0, ios::beg);
+  out.write(reinterpret_cast<const char *>(&body_pos), LL_SIZE);
+
+  // Read graph
   int u, v;
   int last_u;
   vector<int> neighborhood_v;
@@ -68,51 +123,21 @@ int write_bin_file(const char *in_path, const char *out_path) {
   while (!in.eof() && in >> u >> v) {
     if (u != last_u) {
       if (neighborhood_v.size() != 0) {
-        header_size = vertex_size * INT_SIZE;
-        neighborhood_size = neighborhood_v.size();
-
+        write_vector(out, header_pos, body_pos, neighborhood_v);
         cout << last_u << ": " << neighborhood_v.size() << endl;
-
-        // Write current vertex's neighborhood size
-        out.seekp(header_size, ios::beg);
-        out.write(reinterpret_cast<const char *>(&neighborhood_size), INT_SIZE);
-
-        // Write current vertex's neighborhood
-        /*out.seekp(0, ios::end);
-        out.write(reinterpret_cast<const char *>(&neighborhood_v[0]),
-                  INT_SIZE * neighborhood_v.size());*/
-
-        // Set next neighborhood start point
-        // cusor += neighborhood_v.size();
       }
 
       // Move to next vertex
-      vertex_size++;
       last_u = u;
       neighborhood_v.clear();
     }
     neighborhood_v.push_back(v);
-    cout << u << " " << v << endl;
   }
 
   if (neighborhood_v.size() != 0) {
-    header_size = vertex_size * INT_SIZE;
-    neighborhood_size = neighborhood_v.size();
-
+    write_vector(out, header_pos, body_pos, neighborhood_v);
     cout << last_u << ": " << neighborhood_v.size() << endl;
-
-    // Write current vertex's neighborhood size
-    out.seekp(header_size + cusor, ios::beg);
-    out.write(reinterpret_cast<const char *>(&neighborhood_size), INT_SIZE);
-
-    // Set next neighborhood start point
-    cusor += neighborhood_v.size();
   }
-
-  // Write header size
-  header_size += INT_SIZE;
-  out.seekp(0, ios::beg);
-  out.write(reinterpret_cast<const char *>(&header_size), INT_SIZE);
 
   // Close streams
   in.close();
