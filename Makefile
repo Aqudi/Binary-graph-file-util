@@ -7,3 +7,6 @@ all: test
 clean:
 	rm -rf test.exe
 	rm -rf *.o
+
+run:
+	make && test.exe
