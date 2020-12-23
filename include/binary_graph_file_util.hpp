@@ -3,55 +3,86 @@
 
 #include <fstream>
 #include <iostream>
+#include <map>
+#include <sstream>
+#include <time.h>
 #include <unordered_set>
 #include <vector>
 
 #define SZ(x) (sizeof(x))
-#define ll unsigned long long
-#define INT_SIZE SZ(int)
-#define LL_SIZE SZ(ll)
+#define uint unsigned int
+#define ull unsigned long long
+#define INT_SIZE SZ(uint)
+
+/*
+전부 숫자인지 확인
+*/
+bool is_all_number(std::string &s) {
+  using namespace std;
+  for (uint i = 0; i < s.size(); i++) {
+    if ((s[i] >= '0' && s[i] <= '9') == false) {
+      return false;
+    }
+  }
+  return true;
+}
 
 /*
 중복되지 않은 정점의 갯수를 구하는 함수
  */
-ll get_vertex_set_size(const char *in_path) {
+void calculate_vertex_degrees(std::ifstream &in, std::map<int, int> &degrees) {
   using namespace std;
-  // Init ifstream
-  ifstream in;
-  in.open(in_path, ios::binary);
-  if (in.fail()) {
-    cout << "Error: failed to open input file." << endl;
-    return 0;
+
+  string str, temp;
+  stringstream ss;
+
+  int u;
+  vector<string> tokens;
+
+  while (!in.eof()) {
+    getline(in, str);
+    ss.clear();
+    ss << str;
+
+    tokens.clear();
+    while (ss >> temp) {
+      tokens.push_back(temp);
+    }
+
+    if (tokens.size() >= 2) {
+      bool valid = true;
+      for (string it : tokens) {
+        valid &= is_all_number(it);
+      }
+      if (valid) {
+        ss.clear();
+        ss << tokens[0];
+        ss >> u;
+        degrees[u] += 1;
+      }
+    }
   }
 
-  // Vertex set
-  unordered_set<int> vertexs;
-  int u, v;
-  while (!in.eof() && in >> u >> v) {
-    vertexs.insert(u);
-  }
-  return vertexs.size();
+  in.clear();
+  in.seekg(0, ios::beg);
 }
 
 /*
 Binary 파일에서 헤더를 읽는 함수
 */
-std::vector<ll> get_headers_from_bin(std::ifstream &in) {
+void get_headers_from_bin(std::ifstream &in, uint &header_size,
+                          std::vector<uint> &headers) {
   using namespace std;
+
   // Read header size
-  ll header_array_size;
-  in.read(reinterpret_cast<char *>(&header_array_size), LL_SIZE);
-  ll header_size = header_array_size * LL_SIZE;
+  in.read(reinterpret_cast<char *>(&header_size), INT_SIZE);
 
-  ll *header_array = new ll[header_array_size];
-  in.seekg(LL_SIZE, ios::beg);
-  for (unsigned int i = 0; i < header_array_size; i++) {
-    in.read(reinterpret_cast<char *>(&header_array[i]), LL_SIZE);
-  }
+  // Add header_size meta field
+  header_size += 1;
 
-  vector<ll> headers;
-  headers.assign(header_array, header_array + header_array_size);
-  return headers;
+  uint *header_array = new uint[header_size];
+  in.read(reinterpret_cast<char *>(&header_array[0]), INT_SIZE * header_size);
+  headers.assign(header_array, header_array + header_size);
 }
 
 /*
@@ -59,6 +90,8 @@ Binary로 저장된 그래프를 읽는 함수
 */
 std::vector<std::vector<int>> read_bin_file(const char *in_path) {
   using namespace std;
+  double start_clock = clock();
+
   // Init ifstream
   ifstream in;
   in.open(in_path, ios::binary);
@@ -68,19 +101,30 @@ std::vector<std::vector<int>> read_bin_file(const char *in_path) {
   }
 
   // Read header
-  vector<ll> headers = get_headers_from_bin(in);
-  int header_size = headers.size();
+  uint header_size;
+  vector<unsigned int> headers;
+  get_headers_from_bin(in, header_size, headers);
+
+  for (uint i = 0; i < 10; i++) {
+    cout << "headers[" << i << "] :" << headers[i] << endl;
+  }
 
   int neighbor_size;
   vector<vector<int>> adj(header_size);
-  for (int i = 0; i < header_size; i++) {
-    in.seekg(headers[i] * LL_SIZE, ios::beg);
+
+  in.seekg(header_size * INT_SIZE, ios::beg);
+  for (uint i = 0; i < header_size; i++) {
     in.read(reinterpret_cast<char *>(&neighbor_size), INT_SIZE);
     int *neighborhood = new int[neighbor_size];
     in.read(reinterpret_cast<char *>(neighborhood), INT_SIZE * neighbor_size);
     adj[i].assign(neighborhood, neighborhood + neighbor_size);
   }
   in.close();
+
+  double end_clock = clock();
+  double elapsed_time = (end_clock - start_clock) / CLOCKS_PER_SEC;
+  cout << "input: " << in_path << ", elapsed time: " << elapsed_time << " secs."
+       << endl;
   return adj;
 }
 
@@ -92,7 +136,7 @@ std::vector<int> read_bin_file_partition(std::ifstream &in, int header_size,
   using namespace std;
 
   int neighbor_size;
-  in.seekg(header_size * LL_SIZE + body_pos * INT_SIZE, ios::beg);
+  in.seekg(header_size * INT_SIZE + body_pos * INT_SIZE, ios::beg);
   in.read(reinterpret_cast<char *>(&neighbor_size), INT_SIZE);
   int *neighborhood = new int[neighbor_size];
   in.read(reinterpret_cast<char *>(neighborhood), INT_SIZE * neighbor_size);
@@ -105,27 +149,15 @@ std::vector<int> read_bin_file_partition(std::ifstream &in, int header_size,
 /*
 Vector를 binary file에 써주는 함수
 */
-void write_vector(std::ofstream &out, ll &header_size, ll &header_pos,
-                  ll &body_pos, std::vector<int> &data) {
+void write_vector(std::ofstream &out, std::vector<int> &data) {
   using namespace std;
-
-  // Write neighborhood start pos to header
-  out.seekp(header_pos * LL_SIZE, ios::beg);
-  out.write(reinterpret_cast<const char *>(&body_pos), LL_SIZE);
 
   // Write neighborhood size
   int data_size = data.size();
-  out.seekp(header_size * LL_SIZE + body_pos * INT_SIZE, ios::beg);
   out.write(reinterpret_cast<const char *>(&data_size), INT_SIZE);
 
   // Write neighborhood ids
   out.write(reinterpret_cast<const char *>(&data[0]), INT_SIZE * data_size);
-
-  // Move to next body pos
-  body_pos += 1 + data_size;
-
-  // Move to next header pos
-  header_pos += 1;
 }
 
 /*
@@ -134,9 +166,7 @@ void write_vector(std::ofstream &out, ll &header_size, ll &header_pos,
 int write_bin_file(const char *in_path, const char *out_path) {
   using namespace std;
 
-  // Vertex size
-  ll header_size = get_vertex_set_size(in_path);
-
+  double start_clock = clock();
   // Init ifstream
   ifstream in;
   in.open(in_path);
@@ -152,44 +182,81 @@ int write_bin_file(const char *in_path, const char *out_path) {
     return 0;
   }
 
-  ll header_pos = 1;
-  ll body_pos = 0;
+  map<int, int> degrees;
+  calculate_vertex_degrees(in, degrees);
 
-  // Write body start pos
+  // Write header
+  uint header_size = degrees.size();
   out.seekp(0, ios::beg);
-  out.write(reinterpret_cast<const char *>(&header_size), LL_SIZE);
+  out.write(reinterpret_cast<const char *>(&header_size), INT_SIZE);
+  uint body_pos = 0;
+  for (auto it : degrees) {
+    out.write(reinterpret_cast<const char *>(&body_pos), INT_SIZE);
+    body_pos += 1 + it.second;
+  }
 
   // Read graph
+  string str, temp;
+  stringstream ss;
+
+  vector<string> tokens;
+
   int u, v;
   int last_u;
   vector<int> neighborhood_v;
 
-  while (!in.eof() && in >> u >> v) {
-    if (u != last_u) {
-      if (neighborhood_v.size() != 0) {
-        write_vector(out, header_size, header_pos, body_pos, neighborhood_v);
-        // cout << last_u << ": " << neighborhood_v.size() << endl;
-      }
+  while (!in.eof()) {
+    getline(in, str);
+    ss.clear();
+    ss << str;
 
-      // Move to next vertex
-      last_u = u;
-      neighborhood_v.clear();
+    tokens.clear();
+    while (ss >> temp) {
+      tokens.push_back(temp);
     }
-    neighborhood_v.push_back(v);
+
+    if (tokens.size() >= 2) {
+      bool valid = true;
+      for (string it : tokens) {
+        valid &= is_all_number(it);
+      }
+      if (valid) {
+        ss.clear();
+        ss << tokens[0];
+        ss >> u;
+        ss.clear();
+        ss << tokens[1];
+        ss >> v;
+
+        if (u != last_u) {
+          if (neighborhood_v.size() != 0) {
+            write_vector(out, neighborhood_v);
+          }
+          // Move to next vertex
+          last_u = u;
+          neighborhood_v.clear();
+        }
+        neighborhood_v.push_back(v);
+      }
+    }
   }
 
   if (neighborhood_v.size() != 0) {
-    write_vector(out, header_size, header_pos, body_pos, neighborhood_v);
-    // cout << last_u << ": " << neighborhood_v.size() << endl;
+    write_vector(out, neighborhood_v);
+    neighborhood_v.clear();
   }
 
   out.seekp(0, ios::end);
-  ll bytes = out.tellp();
+  ull bytes = out.tellp();
 
   // Close streams
   in.close();
   out.close();
 
+  double end_clock = clock();
+  double elapsed_time = (end_clock - start_clock) / CLOCKS_PER_SEC;
+  cout << "input: " << in_path << ", elapsed time: " << elapsed_time << " secs."
+       << endl;
   return bytes;
 }
 
