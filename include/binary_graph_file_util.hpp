@@ -1,6 +1,7 @@
 #ifndef BINAR_FILE_UTIL_HPPF
 #define BINAR_FILE_UTIL_HPP
 
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -110,7 +111,7 @@ std::vector<std::vector<int>> read_bin_file(const char *in_path) {
   int neighbor_size;
   in.seekg(header_size * INT_SIZE, ios::beg);
 
-  // Remove total header size
+  // Remove header_size field
   header_size -= 1;
 
   vector<vector<int>> adj(header_size);
@@ -120,6 +121,7 @@ std::vector<std::vector<int>> read_bin_file(const char *in_path) {
     in.read(reinterpret_cast<char *>(neighborhood), INT_SIZE * neighbor_size);
     adj[i].assign(neighborhood, neighborhood + neighbor_size);
   }
+
   in.close();
 
   double end_clock = clock();
@@ -132,16 +134,17 @@ std::vector<std::vector<int>> read_bin_file(const char *in_path) {
 /*
 Binary로 저장된 그래프의 일부를 읽는 함수
 */
-std::vector<std::vector<int>> read_bin_file_partition(std::ifstream &in, int header_size,
-                                         int start, uint num_partition) {
+std::vector<std::vector<int>> read_bin_file_partition(std::ifstream &in,
+                                                      int header_size,
+                                                      int start,
+                                                      uint num_partition) {
   using namespace std;
 
-  header_size += 1;
   in.seekg(header_size * INT_SIZE + start * INT_SIZE, ios::beg);
 
   vector<vector<int>> adj(num_partition);
-  int neighbor_size;
-  for(uint i=0; i<num_partition; i++) {
+  for (uint i = 0; i < num_partition; i++) {
+    int neighbor_size;
     in.read(reinterpret_cast<char *>(&neighbor_size), INT_SIZE);
     int *neighborhood = new int[neighbor_size];
     in.read(reinterpret_cast<char *>(neighborhood), INT_SIZE * neighbor_size);
@@ -155,6 +158,8 @@ Vector를 binary file에 써주는 함수
 */
 void write_vector(std::ofstream &out, std::vector<int> &data) {
   using namespace std;
+  // Sort vector
+  sort(data.begin(), data.end());
 
   // Write neighborhood size
   int data_size = data.size();
