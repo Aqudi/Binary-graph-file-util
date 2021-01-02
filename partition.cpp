@@ -23,18 +23,26 @@ int main(int argc, char const *argv[]) {
   vector<unsigned int> headers;
   get_headers_from_bin(in, header_size, headers);
 
-  for (uint i = 0; i < num_partition; i++) {
-    cout << "headers[" << i << "] :" << headers[i] << endl;
-  }
+  vector<vector<int>> adj =
+      read_bin_file_partition(in, header_size, headers[0], num_partition);
 
-  vector<vector<int>> adj = read_bin_file_partition(in, headers.size(), 0, num_partition);
   for (uint i = 0; i < adj.size(); i++) {
-  cout << i << ": ";
-  for (uint j = 0; j < adj[i].size(); j++) {
-    cout << adj[i][j] << " ";
-  }
-  cout << endl;
+    cout << i << ": ";
+    for (uint j = 0, idx = 0; j < adj[i].size() && idx++ < 10; j++) {
+      cout << adj[i][j] << " ";
+    }
+    cout << endl;
   }
 
+  adj = read_bin_file_partition(
+      in, header_size, headers[headers.size() - num_partition], num_partition);
+
+  for (uint i = 0; i < adj.size(); i++) {
+    cout << headers.size() - num_partition + i << ": ";
+    for (uint j = 0, idx = 0; j < adj[i].size() && idx++ < 10; j++) {
+      cout << adj[i][j] << " ";
+    }
+    cout << endl;
+  }
   return 0;
 }

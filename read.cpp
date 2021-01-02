@@ -19,5 +19,13 @@ int main(int argc, char const *argv[]) {
     cout << endl;
   }
 
+  for (uint i = adj.size() - 11; i < adj.size(); i++) {
+    cout << i << ": ";
+    for (uint j = 0; j < adj[i].size(); j++) {
+      cout << adj[i][j] << " ";
+    }
+    cout << endl;
+  }
+
   return 0;
 }
