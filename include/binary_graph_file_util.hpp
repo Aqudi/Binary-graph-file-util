@@ -83,6 +83,7 @@ void get_headers_from_bin(std::ifstream &in, uint &header_size,
   uint *header_array = new uint[header_size];
   in.read(reinterpret_cast<char *>(&header_array[0]), INT_SIZE * header_size);
   headers.assign(header_array, header_array + header_size);
+  delete[] header_array;
 
   // Add header_size meta field
   header_size += 1;
@@ -140,12 +141,14 @@ void read_bin_file_partition(std::ifstream &in,
   in.seekg(header_size * INT_SIZE + start * INT_SIZE, ios::beg);
 
   adj.resize(num_partition, vector<int>());
+  int *neighborhood;
   for (uint i = 0; i < num_partition; i++) {
     int neighbor_size;
     in.read(reinterpret_cast<char *>(&neighbor_size), INT_SIZE);
-    int *neighborhood = new int[neighbor_size];
+    neighborhood = new int[neighbor_size];
     in.read(reinterpret_cast<char *>(neighborhood), INT_SIZE * neighbor_size);
     adj[i].assign(neighborhood, neighborhood + neighbor_size);
+    delete[] neighborhood;
   }
 }
 
