@@ -91,7 +91,7 @@ void get_headers_from_bin(std::ifstream &in, uint &header_size,
 /*
 Binary로 저장된 그래프를 읽는 함수
 */
-std::vector<std::vector<int>> read_bin_file(const char *in_path) {
+void read_bin_file(const char *in_path, std::vector<std::vector<int>> &adj) {
   using namespace std;
   double start_clock = clock();
 
@@ -100,7 +100,7 @@ std::vector<std::vector<int>> read_bin_file(const char *in_path) {
   in.open(in_path, ios::binary);
   if (in.fail()) {
     cout << "Error: failed to open input file." << endl;
-    return vector<vector<int>>();
+    return;
   }
 
   // Read header
@@ -113,8 +113,7 @@ std::vector<std::vector<int>> read_bin_file(const char *in_path) {
 
   // Remove header_size field
   header_size -= 1;
-
-  vector<vector<int>> adj(header_size);
+  adj.resize(header_size, vector<int>());
   for (uint i = 0; i < header_size; i++) {
     in.read(reinterpret_cast<char *>(&neighbor_size), INT_SIZE);
     int *neighborhood = new int[neighbor_size];
@@ -128,21 +127,19 @@ std::vector<std::vector<int>> read_bin_file(const char *in_path) {
   double elapsed_time = (end_clock - start_clock) / CLOCKS_PER_SEC;
   cout << "input: " << in_path << ", elapsed time: " << elapsed_time << " secs."
        << endl;
-  return adj;
 }
 
 /*
 Binary로 저장된 그래프의 일부를 읽는 함수
 */
-std::vector<std::vector<int>> read_bin_file_partition(std::ifstream &in,
-                                                      int header_size,
-                                                      int start,
-                                                      uint num_partition) {
+void read_bin_file_partition(std::ifstream &in,
+                             std::vector<std::vector<int>> &adj,
+                             int header_size, int start, uint num_partition) {
   using namespace std;
 
   in.seekg(header_size * INT_SIZE + start * INT_SIZE, ios::beg);
 
-  vector<vector<int>> adj(num_partition);
+  adj.resize(num_partition, vector<int>());
   for (uint i = 0; i < num_partition; i++) {
     int neighbor_size;
     in.read(reinterpret_cast<char *>(&neighbor_size), INT_SIZE);
@@ -150,7 +147,6 @@ std::vector<std::vector<int>> read_bin_file_partition(std::ifstream &in,
     in.read(reinterpret_cast<char *>(neighborhood), INT_SIZE * neighbor_size);
     adj[i].assign(neighborhood, neighborhood + neighbor_size);
   }
-  return adj;
 }
 
 /*

@@ -10,7 +10,8 @@ int main(int argc, char const *argv[]) {
   const char *in_path = argv[1];
 
   // Read whole file
-  vector<vector<int>> adj = read_bin_file(in_path);
+  vector<vector<int>> adj;
+  read_bin_file(in_path, adj);
   for (uint i = 0; i < adj.size() && i < 10; i++) {
     cout << i << ": ";
     for (uint j = 0; j < adj[i].size(); j++) {
