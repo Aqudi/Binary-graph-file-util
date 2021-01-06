@@ -80,9 +80,9 @@ void get_headers_from_bin(std::ifstream &in, uint &header_size,
   in.read(reinterpret_cast<char *>(&header_size), INT_SIZE);
 
   // Read headers
-  uint *header_array = new uint[header_size];
+  uint *header_array = new uint[header_size - 1];
   in.read(reinterpret_cast<char *>(&header_array[0]), INT_SIZE * header_size);
-  headers.assign(header_array, header_array + header_size);
+  headers.assign(header_array, header_array + header_size - 1);
   delete[] header_array;
 
   // Add header_size meta field
