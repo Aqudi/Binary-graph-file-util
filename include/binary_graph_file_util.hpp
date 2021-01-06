@@ -80,9 +80,10 @@ void get_headers_from_bin(std::ifstream &in, uint &header_size,
   in.read(reinterpret_cast<char *>(&header_size), INT_SIZE);
 
   // Read headers
-  uint *header_array = new uint[header_size - 1];
-  in.read(reinterpret_cast<char *>(&header_array[0]), INT_SIZE * header_size);
-  headers.assign(header_array, header_array + header_size - 1);
+  uint vertex_size = header_size - 1;
+  uint *header_array = new uint[vertex_size];
+  in.read(reinterpret_cast<char *>(&header_array[0]), INT_SIZE * vertex_size);
+  headers.assign(header_array, header_array + vertex_size);
   delete[] header_array;
 
   // Add header_size meta field
@@ -115,11 +116,13 @@ void read_bin_file(const char *in_path, std::vector<std::vector<int>> &adj) {
   // Remove header_size field
   header_size -= 1;
   adj.resize(header_size, vector<int>());
+  int *neighborhood;
   for (uint i = 0; i < header_size; i++) {
     in.read(reinterpret_cast<char *>(&neighbor_size), INT_SIZE);
-    int *neighborhood = new int[neighbor_size];
+    neighborhood = new int[neighbor_size];
     in.read(reinterpret_cast<char *>(neighborhood), INT_SIZE * neighbor_size);
     adj[i].assign(neighborhood, neighborhood + neighbor_size);
+    delete[] neighborhood;
   }
 
   in.close();
